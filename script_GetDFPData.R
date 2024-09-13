@@ -6,11 +6,9 @@ library(BatchGetSymbols)
 library(purrr)
 
 # Informações das Empresas
-
 df_info <- get_info_companies()
 
 # 1.1 Filtrar setor com mais empresas canceladas: 
-
 qtd_setCancelada <- df_info %>%
   filter(SIT_REG=="CANCELADA") %>%
   count(SETOR_ATIV) %>%
@@ -22,7 +20,6 @@ print(paste("Setor com mais empresas canceladas: ", setMaisCanc$SETOR_ATIV))
 print(paste("Número de empresas desse setor que foram canceladas: ", setMaisCanc$n))
 
 # 1.2 Filtrar do setor com mais empresas canceladas o maior motivo de cancelamento: 
-
 qtd_motCancel <- df_info %>%
   filter(SETOR_ATIV==setMaisCanc$SETOR_ATIV) %>%
   count(MOTIVO_CANCEL) %>%
@@ -52,14 +49,28 @@ print(paste("Setor com mais empresas ativas: ", setComMaisEmprAtv$SETOR_ATIV))
 print(paste("Número de empresas desse setor que estão ativas: ", setComMaisEmprAtv$n))
 
 # 2.2 Filtrar as empresas desse setor
-
 df_emprSetAtv <- df_info %>%
   filter(SIT_REG=="ATIVO" & SETOR_ATIV=="Energia Elétrica")
 
 # 2.3 Filtrar as empresas desse setor que são da Categoria A e são negociadas no mercado BOLSA
-
 df_CateA_Bolsa <- df_emprSetAtv %>%
   filter(CATEG_REG=="Categoria A" & TP_MERC=="BOLSA")
 
-  
 
+
+
+# 3.1 Filtrar setor com mais empresas estatais ativos
+set_EstatalAtv <- df_info %>% 
+  filter(CONTROLE_ACIONARIO=="ESTATAL" & SIT_REG=="ATIVO") %>%
+  count(SETOR_ATIV) %>%
+  arrange(desc(n))
+
+set_maisEstatal <- set_EstatalAtv[1, ]
+
+print(paste("Setor com mais empresas estatais ativas: ", set_maisEstatal$SETOR_ATIV))
+print(paste("Número de empresas desse setor que estão ativas: ", set_maisEstatal$n))
+
+# 3.2 Filtrar do setor com mais estatais ativas, aquelas que são negociadas no mercado BOLSA
+df_estatais <- df_info %>%
+  filter(CONTROLE_ACIONARIO=="ESTATAL" & SIT_REG=="ATIVO" & SETOR_ATIV==set_maisEstatal$SETOR_ATIV & TP_MERC=="BOLSA")
+  
