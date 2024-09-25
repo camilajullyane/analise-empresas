@@ -5,72 +5,56 @@ library(GetDFPData2)
 library(BatchGetSymbols)
 library(purrr)
 
-# Informações das Empresas
+
+minha_funcao <- function(cod_cvm, first_year, last_year) {
+  l_dfp <- get_dfp_data(companies_cvm_codes = cod_cvm,
+                        type_docs = '*', 
+                        type_format = 'con', 
+                        first_year = first_year,
+                        last_year = last_year)
+  
+  # Verifique se os dados foram retornados corretamente
+  if (is.null(l_dfp) || is.null(l_dfp$`DF Consolidado - Balanço Patrimonial Ativo`)) {
+    return(NA)  # Retorna NA se não houver dados
+  }
+  
+  fr_assests <- l_dfp$`DF Consolidado - Balanço Patrimonial Ativo`
+  fr_assests_1 <- fr_assests %>%
+    select(DT_REFER, CD_CONTA, DS_CONTA, VL_CONTA)
+  
+  At_total <- fr_assests_1[1, 4]
+  At_circulante <- fr_assests_1[2, 4]
+  
+  # Aqui, você deve ter a variável fr_passiv definida
+  # Certifique-se de que está obtendo os dados do passivo corretamente
+  fr_passiv <- l_dfp$`DF Consolidado - Balanço Patrimonial Passivo`  # Exemplo
+  
+  if (is.null(fr_passiv)) {
+    print(2)
+    return(NA)  # Retorna NA se não houver dados do passivo
+  }
+  
+  fr_passiv_1 <- fr_passiv %>%
+    select(DT_REFER, CD_CONTA, DS_CONTA, VL_CONTA)
+  
+  Ps_total <- fr_passiv_1[1, 4]
+  Ps_circulante <- fr_passiv_1[2, 4]
+  
+  # Índice de Liquidez
+  liquidez <- At_circulante / Ps_circulante
+  
+  print(liquidez)
+  
+  return(liquidez[1,1])  # Retorna o resultado
+}
+
+
 df_info <- get_info_companies()
 
-# 1.1 Filtrar setor com mais empresas canceladas: 
-qtd_setCancelada <- df_info %>%
-  filter(SIT_REG=="CANCELADA") %>%
-  count(SETOR_ATIV) %>%
-  arrange(desc(n)) 
-
-setMaisCanc <- qtd_setCancelada[1, ]
-
-print(paste("Setor com mais empresas canceladas: ", setMaisCanc$SETOR_ATIV))
-print(paste("Número de empresas desse setor que foram canceladas: ", setMaisCanc$n))
-
-# 1.2 Filtrar do setor com mais empresas canceladas o maior motivo de cancelamento: 
-qtd_motCancel <- df_info %>%
-  filter(SETOR_ATIV==setMaisCanc$SETOR_ATIV) %>%
-  count(MOTIVO_CANCEL) %>%
-  arrange(desc(n))
-
-motivoMaisCanc <- qtd_motCancel[1, ]
-
-print(paste("O motivo que mais cancelou empresas foi: ", motivoMaisCanc$MOTIVO_CANCEL))
-print(paste("Número de empresas desse setor que foram canceladas por esse motivo: ", motivoMaisCanc$n))
-
-# 1.3 Cria um df com os dados das empresas canceladas do setor
-df_empresasCancel <- df_info %>%
-  filter(SETOR_ATIV==setMaisCanc$SETOR_ATIV & SIT_REG=="CANCELADA" & MOTIVO_CANCEL==motivoMaisCanc$MOTIVO_CANCEL)
+empresas_industria <- df_info %>%
+  filter(SIT_REG=="ATIVO" & TP_MERC=="BOLSA" & SETOR_ATIV=="Serviços Médicos")
 
 
-
-
-# 2.1 Filtra o setor com mais empresas com registro ATIVO
-qtd_empresasAtv <- df_info %>%
-  filter(SIT_REG=="ATIVO") %>%
-  count(SETOR_ATIV) %>%
-  arrange(desc(n))
-
-setComMaisEmprAtv <- qtd_empresasAtv[1, ]
-
-print(paste("Setor com mais empresas ativas: ", setComMaisEmprAtv$SETOR_ATIV))
-print(paste("Número de empresas desse setor que estão ativas: ", setComMaisEmprAtv$n))
-
-# 2.2 Filtrar as empresas desse setor
-df_emprSetAtv <- df_info %>%
-  filter(SIT_REG=="ATIVO" & SETOR_ATIV=="Energia Elétrica")
-
-# 2.3 Filtrar as empresas desse setor que são da Categoria A e são negociadas no mercado BOLSA
-df_CateA_Bolsa <- df_emprSetAtv %>%
-  filter(CATEG_REG=="Categoria A" & TP_MERC=="BOLSA")
-
-
-
-
-# 3.1 Filtrar setor com mais empresas estatais ativos
-set_EstatalAtv <- df_info %>% 
-  filter(CONTROLE_ACIONARIO=="ESTATAL" & SIT_REG=="ATIVO") %>%
-  count(SETOR_ATIV) %>%
-  arrange(desc(n))
-
-set_maisEstatal <- set_EstatalAtv[1, ]
-
-print(paste("Setor com mais empresas estatais ativas: ", set_maisEstatal$SETOR_ATIV))
-print(paste("Número de empresas desse setor que estão ativas: ", set_maisEstatal$n))
-
-# 3.2 Filtrar do setor com mais estatais ativas, aquelas que são negociadas no mercado BOLSA
-df_estatais <- df_info %>%
-  filter(CONTROLE_ACIONARIO=="ESTATAL" & SIT_REG=="ATIVO" & SETOR_ATIV==set_maisEstatal$SETOR_ATIV & TP_MERC=="BOLSA")
-  
+# Aplicando a função para cada empresa
+resultado_liquidez <- empresas_industria %>%
+  mutate(map(CD_CVM, ~minha_funcao(.x, 2022, 2023)))
