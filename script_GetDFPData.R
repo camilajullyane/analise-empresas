@@ -45,16 +45,32 @@ minha_funcao <- function(cod_cvm, first_year, last_year) {
   
   print(liquidez)
   
-  return(liquidez[1,1])  # Retorna o resultado
+  return(as.numeric(liquidez[1,1]))  # Retorna o resultado
 }
 
 
 df_info <- get_info_companies()
 
-empresas_industria <- df_info %>%
-  filter(SIT_REG=="ATIVO" & TP_MERC=="BOLSA" & SETOR_ATIV=="Serviços Médicos")
+empresas_energia <- df_info %>%
+  filter(SIT_REG=="ATIVO" & TP_MERC=="BOLSA" & SETOR_ATIV=="Energia Elétrica")
 
 
-# Aplicando a função para cada empresa
-resultado_liquidez <- empresas_industria %>%
-  mutate(map(CD_CVM, ~minha_funcao(.x, 2022, 2023)))
+# Aplicando a função para cada empresa do setor de energia
+resultado_liquidez_energia <- empresas_industria %>%
+  mutate(map_dbl(CD_CVM, ~minha_funcao(.x, 2022, 2023)))
+
+
+liquedez_energia <- resultado_liquidez_energia %>%
+  filter(`map_dbl(CD_CVM, ~minha_funcao(.x, 2022, 2023))`!="NA") %>%
+  arrange(desc(`map_dbl(CD_CVM, ~minha_funcao(.x, 2022, 2023))`))
+
+empresas_const_civil <- df_info %>%
+  filter(SIT_REG=="ATIVO" & TP_MERC=="BOLSA" & SETOR_ATIV=="Construção Civil, Mat. Constr. e Decoração")
+
+# Aplicando a função para cada empresa do setor de construção civil
+resultado_liquidez_const <- empresas_industria %>%
+  mutate(map_dbl(CD_CVM, ~minha_funcao(.x, 2022, 2023)))
+
+liquedez_construção <- resultado_liquidez_const %>%
+  filter(`map_dbl(CD_CVM, ~minha_funcao(.x, 2022, 2023))`!="NA") %>%
+  arrange(desc(`map_dbl(CD_CVM, ~minha_funcao(.x, 2022, 2023))`))
