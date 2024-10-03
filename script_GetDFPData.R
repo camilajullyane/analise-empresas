@@ -3,74 +3,66 @@ library(dplyr)
 library(tidyverse)
 library(GetDFPData2)
 library(BatchGetSymbols)
-library(purrr)
 
 
-minha_funcao <- function(cod_cvm, first_year, last_year) {
-  l_dfp <- get_dfp_data(companies_cvm_codes = cod_cvm,
-                        type_docs = '*', 
-                        type_format = 'con', 
-                        first_year = first_year,
-                        last_year = last_year)
+Indice_liquidez <- function(ATCIRCULANTE,PSCIRCULANTE) {
+  ILiquidez = ATCIRCULANTE/PSCIRCULANTE
   
-  # Verifique se os dados foram retornados corretamente
-  if (is.null(l_dfp) || is.null(l_dfp$`DF Consolidado - Balanço Patrimonial Ativo`)) {
-    return(NA)  # Retorna NA se não houver dados
-  }
+  return(ILiquidez)
   
-  fr_assests <- l_dfp$`DF Consolidado - Balanço Patrimonial Ativo`
-  fr_assests_1 <- fr_assests %>%
-    select(DT_REFER, CD_CONTA, DS_CONTA, VL_CONTA)
-  
-  At_total <- fr_assests_1[1, 4]
-  At_circulante <- fr_assests_1[2, 4]
-  
-  # Aqui, você deve ter a variável fr_passiv definida
-  # Certifique-se de que está obtendo os dados do passivo corretamente
-  fr_passiv <- l_dfp$`DF Consolidado - Balanço Patrimonial Passivo`  # Exemplo
-  
-  if (is.null(fr_passiv)) {
-    print(2)
-    return(NA)  # Retorna NA se não houver dados do passivo
-  }
-  
-  fr_passiv_1 <- fr_passiv %>%
-    select(DT_REFER, CD_CONTA, DS_CONTA, VL_CONTA)
-  
-  Ps_total <- fr_passiv_1[1, 4]
-  Ps_circulante <- fr_passiv_1[2, 4]
-  
-  # Índice de Liquidez
-  liquidez <- At_circulante / Ps_circulante
-  
-  print(liquidez)
-  
-  return(as.numeric(liquidez[1,1]))  # Retorna o resultado
 }
 
+Giro_estoque <- function(Custo_Venda, At_estoque){
+  GIestoque = Custo_Venda*-1/At_estoque
+  
+  return(GIestoque)
+}
+
+Marg_Lucro <- function(Receita_financeiro, Receita_Venda){
+  MARGlucro = Receita_financeiro/Receita_Venda
+  
+  return(MARGlucro)
+}
 
 df_info <- get_info_companies()
 
-empresas_energia <- df_info %>%
-  filter(SIT_REG=="ATIVO" & TP_MERC=="BOLSA" & SETOR_ATIV=="Energia Elétrica")
+companies_ids <- c(4170, 21610, 7617, 2437)  # Lista de IDs das empresas
+first_year <- 2021
+last_year <- 2022
 
+for (id_company in companies_ids) {
+  company_name <- df_info %>%
+    filter(id_company == CD_CVM) %>%
+    select(DENOM_SOCIAL) %>%
+    pull()
+  
+  # Baixando dados DFP
+  l_dfp <- get_dfp_data(companies_cvm_codes = id_company,
+                        type_docs = '*',  # pegar todos os tipos de documentos
+                        type_format = 'con',  # consolidado
+                        first_year = first_year,
+                        last_year = last_year)
+  
+  fr_ativ <- l_dfp$'DF Consolidado - Balanço Patrimonial Ativo' %>%
+    select(DT_REFER, CD_CONTA, DS_CONTA, VL_CONTA)
+  At_circulante <- unlist(fr_ativ[2, 4])
+  At_estoque <- unlist(fr_ativ[16, 4])
+  At_total <- unlist(fr_ativ[1, 4])
+  
+  fr_passiv <- l_dfp$'DF Consolidado - Balanço Patrimonial Passivo' %>%
+    select(DT_REFER, CD_CONTA, DS_CONTA, VL_CONTA)
+  Ps_circulante <- unlist(fr_passiv[2, 4])
+  
+  fr_dre <- l_dfp$'DF Consolidado - Demonstração do Resultado' %>%
+    select(DT_REFER, CD_CONTA, DS_CONTA, VL_CONTA)
+  Custo_Venda <- unlist(fr_dre[2, 4])
+  Receita_financeiro <- unlist(fr_dre[53, 4])
+  Receita_Venda <- unlist(fr_dre[1, 4])
+  
+  cat("Empresa ID:", id_company, "\n")
+  cat("Nome da Empresa:", company_name, "\n")
+  cat("Indice de liquides: ", Indice_liquidez(At_circulante, Ps_circulante), "\n")
+  cat("Giro de estoque: ", Giro_estoque(Custo_Venda, At_estoque), "\n")
+  cat("Margem de lucro: ", Marg_Lucro(Receita_financeiro, Receita_Venda))
+}
 
-# Aplicando a função para cada empresa do setor de energia
-resultado_liquidez_energia <- empresas_industria %>%
-  mutate(map_dbl(CD_CVM, ~minha_funcao(.x, 2022, 2023)))
-
-
-liquedez_energia <- resultado_liquidez_energia %>%
-  filter(`map_dbl(CD_CVM, ~minha_funcao(.x, 2022, 2023))`!="NA") %>%
-  arrange(desc(`map_dbl(CD_CVM, ~minha_funcao(.x, 2022, 2023))`))
-
-empresas_const_civil <- df_info %>%
-  filter(SIT_REG=="ATIVO" & TP_MERC=="BOLSA" & SETOR_ATIV=="Construção Civil, Mat. Constr. e Decoração")
-
-# Aplicando a função para cada empresa do setor de construção civil
-resultado_liquidez_const <- empresas_industria %>%
-  mutate(map_dbl(CD_CVM, ~minha_funcao(.x, 2022, 2023)))
-
-liquedez_construção <- resultado_liquidez_const %>%
-  filter(`map_dbl(CD_CVM, ~minha_funcao(.x, 2022, 2023))`!="NA") %>%
-  arrange(desc(`map_dbl(CD_CVM, ~minha_funcao(.x, 2022, 2023))`))
